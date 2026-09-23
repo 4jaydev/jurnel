@@ -1,68 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Jurnel</title>
-    <!-- Tailwind CSS CDN for styling -->
+    <title>Login - Forex Trading Journal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-lg shadow-md w-96">
-        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
-        
-        <div id="errorMessage" class="hidden mb-4 p-3 bg-red-100 text-red-700 text-sm rounded"></div>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 transition-colors duration-200">
 
-        <form id="loginForm" class="space-y-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-8 shadow-2xl space-y-6">
+        <div class="text-center space-y-2">
+            <h1 class="text-3xl font-bold text-emerald-400 tracking-tight">📈 FX Journal</h1>
+            <p class="text-slate-400 text-sm">Sign in to track your trading performance</p>
+        </div>
+
+        <form id="authForm" class="space-y-4">
             <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="username">Email</label>
-                <input class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" id="username" required placeholder="Enter your email">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Email Address</label>
+                <input type="email" id="email" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500" placeholder="trader@example.com">
             </div>
+            
             <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
-                <input class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="password" id="password" required placeholder="Enter your password">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Password</label>
+                <input type="password" id="password" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500" placeholder="••••••••">
             </div>
-            <button type="submit" id="loginBtn" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200">
-                Login
-            </button>
+
+            <!-- Error Message Box -->
+            <p id="errorMessage" class="text-rose-400 text-xs text-center hidden"></p>
+
+            <div class="pt-2 space-y-3">
+                <button type="button" id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+                    Sign In
+                </button>
+                
+                <div class="relative flex items-center py-2">
+                    <div class="flex-grow border-t border-slate-800"></div>
+                    <span class="flex-shrink-0 mx-4 text-slate-500 text-xs">OR</span>
+                    <div class="flex-grow border-t border-slate-800"></div>
+                </div>
+
+                <button type="button" id="signupBtn" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+                    Create New Account
+                </button>
+            </div>
         </form>
     </div>
 
-    <!-- Firebase Authentication Script Module -->
+    <!-- FIREBASE AUTHENTICATION LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        
+        // Securely import config from file.js
         import { firebaseConfig } from "./file.js";
 
-        console.log("Loaded Firebase Config:", firebaseConfig);
+        let app, auth;
+        const errorMessageEl = document.getElementById('errorMessage');
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        console.log("✅ Firebase initialized successfully");
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
 
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const userInput = document.getElementById('username').value.trim();
-            const passInput = document.getElementById('password').value;
-            const errorMsg = document.getElementById('errorMessage');
-            const loginBtn = document.getElementById('loginBtn');
+            // Redirect to dashboard immediately if already logged in
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    window.location.href = 'dashboard.html';
+                }
+            });
+        } catch (error) {
+            console.error("Firebase init error:", error);
+            showError("Cannot connect to database. Check Vercel environment variables.");
+        }
+
+        function showError(msg) {
+            errorMessageEl.textContent = msg;
+            errorMessageEl.classList.remove('hidden');
+        }
+
+        // Login Function
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
             
-            errorMsg.classList.add('hidden');
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Connecting...';
+            if(!email || !password) return showError("Please enter both email and password.");
 
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, userInput, passInput);
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('currentUser', userCredential.user.email);
+                await signInWithEmailAndPassword(auth, email, password);
                 window.location.href = 'dashboard.html';
             } catch (error) {
-                console.error("Login Error:", error);
-                errorMsg.textContent = "Invalid username or password.";
-                errorMsg.classList.remove('hidden');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login';
+                console.error(error);
+                showError("Invalid email or password.");
+            }
+        });
+
+        // Sign Up Function
+        document.getElementById('signupBtn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if(!email || !password) return showError("Please enter both email and password.");
+            if(password.length < 6) return showError("Password must be at least 6 characters.");
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error(error);
+                showError("Failed to create account. Email may already be in use.");
             }
         });
     </script>

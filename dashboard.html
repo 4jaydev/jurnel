@@ -153,53 +153,13 @@
         </div>
     </div>
 
-    <!-- Firebase & App Script logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firestore";
 
-        // ⚠️ PASTE YOUR ACTUAL KEYS INSIDE THESE QUOTES BELOW!
-        const firebaseConfig = {
-            apiKey: "PASTE_YOUR_API_KEY_HERE",
-            authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
-            projectId: "PASTE_YOUR_PROJECT_ID_HERE",
-            storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
-            messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
-            appId: "PASTE_YOUR_APP_ID_HERE"
-        };
-
-        let app, auth, db, currentUser = null;
-        let tradesData = [];
-        let currentYear = new Date().getFullYear();
-        let currentMonth = new Date().getMonth();
-
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    fetchTrades();
-                } else {
-                    window.location.href = 'index.html';
-                }
-            });
-        } catch (error) {
-            console.error("🔥 Firebase Init Error:", error);
-            alert("Firebase failed to load. Did you paste your keys into the script?");
-        }
-
-        // BUTTON LOGIC
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            if(auth) await signOut(auth);
-            window.location.href = 'index.html';
-        });
-
-        const themeToggle = document.getElementById('themeToggle');
-        themeToggle.addEventListener('click', () => {
+    <!-- ========================================== -->
+    <!-- SCRIPT 1: PURE UI (GUARANTEED TO WORK)     -->
+    <!-- ========================================== -->
+    <script>
+        // Theme toggle logic
+        document.getElementById('themeToggle').addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             if(document.documentElement.classList.contains('dark')) {
                 document.body.className = "bg-slate-950 text-slate-100 min-h-screen transition-colors duration-200";
@@ -208,7 +168,8 @@
             }
         });
 
-        window.openTradeModal = (prefillDate = null) => {
+        // UI Modal Functions
+        function openTradeModal(prefillDate = null) {
             document.getElementById('tradeModal').classList.remove('hidden');
             document.getElementById('tradeModal').classList.add('flex');
             
@@ -219,19 +180,61 @@
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                 document.getElementById('tradeDate').value = now.toISOString().slice(0,16);
             }
-        };
+        }
 
-        window.closeTradeModal = () => {
+        function closeTradeModal() {
             document.getElementById('tradeModal').classList.add('hidden');
             document.getElementById('tradeModal').classList.remove('flex');
-        };
+        }
 
-        window.closeDayModal = () => {
+        function closeDayModal() {
             document.getElementById('dayDetailsModal').classList.add('hidden');
             document.getElementById('dayDetailsModal').classList.remove('flex');
-        };
+        }
+    </script>
 
-        // DATABASE LOGIC
+
+    <!-- ========================================== -->
+    <!-- SCRIPT 2: FIREBASE & DATA LOGIC            -->
+    <!-- ========================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firestore";
+        
+        // Imports your secure backend config!
+        import { firebaseConfig } from "./file.js";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let tradesData = [];
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+
+        // 1. Authenticate user
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                fetchTrades();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // 2. Logout Button functionality
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error("Logout Error:", error);
+            }
+        });
+
+        // 3. Database Functions
         async function fetchTrades() {
             if (!currentUser || !db) return;
             try {
@@ -248,6 +251,7 @@
             }
         }
 
+        // 4. Save New Trade
         document.getElementById('newTradeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!currentUser || !db) return;
@@ -278,15 +282,16 @@
 
             try {
                 await addDoc(collection(db, "trades"), newTrade);
-                closeTradeModal();
+                closeTradeModal(); // From script 1
                 document.getElementById('newTradeForm').reset();
                 fetchTrades();
             } catch (err) {
                 console.error("Error adding trade:", err);
-                alert("Failed to save trade.");
+                alert("Failed to save trade to database.");
             }
         });
 
+        // 5. Calendar Navigation
         document.getElementById('prevMonth').addEventListener('click', () => {
             currentMonth--;
             if(currentMonth < 0) { currentMonth = 11; currentYear--; }
@@ -306,6 +311,7 @@
             updateStats();
         });
 
+        // 6. Calendar Rendering
         function renderCalendar() {
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             document.getElementById('currentMonthYear').textContent = monthNames[currentMonth] + " " + currentYear;
@@ -352,14 +358,15 @@
                     if (dayTrades.length > 0) {
                         showDayTrades(dateStr, dayTrades);
                     } else {
-                        openTradeModal(dateStr);
+                        openTradeModal(dateStr); // Calls UI function in Script 1
                     }
                 };
                 grid.appendChild(cell);
             }
         }
 
-        function showDayTrades(dateStr, trades) {
+        // Attach this globally so the dynamically generated HTML can trigger it
+        window.showDayTrades = function(dateStr, trades) {
             document.getElementById('dayDetailsTitle').textContent = "Trades on " + dateStr;
             const list = document.getElementById('dayTradesList');
             list.innerHTML = '';
@@ -376,6 +383,7 @@
                     const screenshotSection = t.screenshot ? '<a href="' + t.screenshot + '" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>' : '';
 
                     card.innerHTML = '<div class="flex justify-between items-center"><span class="font-bold text-emerald-400">' + t.pair + '</span><span class="' + plColorClass + ' font-bold">$' + t.pl.toFixed(2) + '</span></div><div class="grid grid-cols-2 gap-2 text-xs text-slate-300"><div>Entry: <span class="text-white">' + t.entry + '</span></div><div>Exit: <span class="text-white">' + t.exit + '</span></div><div>SL: <span class="text-white">' + t.stopLoss + '</span> | TP: <span class="text-white">' + t.takeProfit + '</span></div><div>RR: <span class="text-emerald-400">' + t.rr + '</span></div><div>Lots: <span class="text-white">' + t.lotSize + '</span></div></div>' + notesSection + screenshotSection;
+                    
                     list.appendChild(card);
                 });
             }
@@ -402,6 +410,7 @@
             document.getElementById('statTotalTrades').textContent = monthTrades.length;
         }
 
+        // Render initially so it's not blank
         renderCalendar();
     </script>
 </body>

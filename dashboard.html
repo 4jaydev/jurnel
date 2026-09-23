@@ -49,9 +49,9 @@
         <!-- Controls & Filters -->
         <div class="flex flex-wrap justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-xl gap-4">
             <div class="flex items-center space-x-3">
-                <button id="prevMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold">&larr; Prev</button>
+                <button id="prevMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold cursor-pointer">&larr; Prev</button>
                 <h2 id="currentMonthYear" class="text-lg font-bold w-48 text-center text-emerald-400">September 2026</h2>
-                <button id="nextMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold">Next &rarr;</button>
+                <button id="nextMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold cursor-pointer">Next &rarr;</button>
             </div>
             <div class="flex items-center space-x-2">
                 <label class="text-sm text-slate-400">Filter Pair:</label>
@@ -212,6 +212,26 @@
             }
         });
 
+        // Attach Month Navigation Listeners Immediately
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentMonth--;
+            if(currentMonth < 0) { currentMonth = 11; currentYear--; }
+            renderCalendar();
+            updateStats();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentMonth++;
+            if(currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderCalendar();
+            updateStats();
+        });
+
+        document.getElementById('pairFilter').addEventListener('change', () => {
+            renderCalendar();
+            updateStats();
+        });
+
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -282,25 +302,6 @@
                 console.error("Error adding trade:", err);
                 alert("Failed to save trade to database.");
             }
-        });
-
-        document.getElementById('prevMonth').addEventListener('click', () => {
-            currentMonth--;
-            if(currentMonth < 0) { currentMonth = 11; currentYear--; }
-            renderCalendar();
-            updateStats();
-        });
-
-        document.getElementById('nextMonth').addEventListener('click', () => {
-            currentMonth++;
-            if(currentMonth > 11) { currentMonth = 0; currentYear++; }
-            renderCalendar();
-            updateStats();
-        });
-
-        document.getElementById('pairFilter').addEventListener('change', () => {
-            renderCalendar();
-            updateStats();
         });
 
         function renderCalendar() {
@@ -400,6 +401,7 @@
             document.getElementById('statTotalTrades').textContent = monthTrades.length;
         }
 
+        // Initial render on page load
         renderCalendar();
     </script>
 </body>

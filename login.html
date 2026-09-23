@@ -1,1 +1,97 @@
-hello
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>personaljurnal</title>
+    <!-- Add your CSS styling here or link your stylesheet -->
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
+        .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; margin-bottom: 0.5rem; }
+        .input-group input { width: 100%; padding: 0.5rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 0.75rem; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        button:disabled { background-color: #cccccc; }
+        .hidden { display: none; }
+        #errorMessage { color: red; margin-bottom: 1rem; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>personal jurnol</h2>
+        <!-- Error Message Container -->
+        <div id="errorMessage" class="hidden"></div>
+        <!-- Login Form -->
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">Email / Username</label>
+                <input type="email" id="username" required placeholder="Enter your email">
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter your password">
+            </div>
+            <button type="submit" id="loginBtn">Login</button>
+        </form>
+    </div>
+
+    <!-- Firebase Authentication Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+            authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+            projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+            storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+            messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+            appId: import.meta.env.VITE_FIREBASE_APP_ID,
+            measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+        };
+
+        // 🔍 DEBUG: Check if environment variables are loaded
+        console.log("ENV Variables Check:", {
+            apiKey: import.meta.env.VITE_FIREBASE_API_KEY ? "✅ Loaded" : "❌ Missing",
+            authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ? "✅ Loaded" : "❌ Missing",
+            projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ? "✅ Loaded" : "❌ Missing",
+            storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ? "✅ Loaded" : "❌ Missing",
+            messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ? "✅ Loaded" : "❌ Missing",
+            appId: import.meta.env.VITE_FIREBASE_APP_ID ? "✅ Loaded" : "❌ Missing",
+            measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID ? "✅ Loaded" : "❌ Missing"
+        });
+        console.log("Full Firebase Config:", firebaseConfig);
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        console.log("✅ Firebase initialized successfully");
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const userInput = document.getElementById('username').value.trim();
+            const passInput = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMessage');
+            const loginBtn = document.getElementById('loginBtn');
+            
+            errorMsg.classList.add('hidden');
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Connecting...';
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, userInput, passInput);
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('currentUser', userCredential.user.email);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error("Login Error:", error);
+                errorMsg.textContent = "Invalid username or password.";
+                errorMsg.classList.remove('hidden');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>

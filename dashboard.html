@@ -254,7 +254,7 @@
                 pl: parseFloat(document.getElementById('tradePL').value),
                 notes: document.getElementById('tradeNotes').value,
                 screenshot: document.getElementById('tradeScreenshot').value,
-                rr: `${rr}:1`,
+                rr: rr + ":1",
                 createdAt: new Date().toISOString()
             };
 
@@ -291,7 +291,7 @@
 
         function renderCalendar() {
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            document.getElementById('currentMonthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            document.getElementById('currentMonthYear').textContent = monthNames[currentMonth] + " " + currentYear;
 
             const grid = document.getElementById('calendarGrid');
             grid.innerHTML = '';
@@ -301,15 +301,15 @@
             const filterPair = document.getElementById('pairFilter').value;
 
             // Blank padding days
-            for(let i=0; i<firstDayIndex; i++) {
+            for(let i = 0; i < firstDayIndex; i++) {
                 const cell = document.createElement('div');
                 cell.className = "bg-slate-900/40 p-2 min-h-[100px]";
                 grid.appendChild(cell);
             }
 
             // Month days
-            for(let day=1; day<=totalDays; day++) {
-                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            for(let day = 1; day <= totalDays; day++) {
+                const dateStr = currentYear + "-" + String(currentMonth + 1).padStart(2, '0') + "-" + String(day).padStart(2, '0');
                 const dayTrades = tradesData.filter(t => t.date.startsWith(dateStr) && (filterPair === 'ALL' || t.pair === filterPair));
                 
                 const dayPl = dayTrades.reduce((acc, t) => acc + t.pl, 0);
@@ -326,47 +326,36 @@
                 }
 
                 const cell = document.createElement('div');
-                cell.className = `p-3 min-h-[100px] border border-slate-800/80 flex flex-col justify-between cursor-pointer hover:bg-slate-800/50 transition ${indicatorClass}`;
-                cell.innerHTML = `
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="font-bold text-slate-300">${day}</span>
-                        <span class="text-[10px] text-slate-500">${dayTrades.length ? dayTrades.length + ' trade(s)' : ''}</span>
-                    </div>
-                    <div class="my-auto text-center">
-                        ${dayTrades.length ? `<span class="${textPlColor} text-sm">${dayPl >= 0 ? '+$' + dayPl.toFixed(2) : '-$' + Math.abs(dayPl).toFixed(2)}</span>` : ''}
-                    </div>
-                `;
+                cell.className = "p-3 min-h-[100px] border border-slate-800/80 flex flex-col justify-between cursor-pointer hover:bg-slate-800/50 transition " + indicatorClass;
+                
+                const countText = dayTrades.length > 0 ? dayTrades.length + ' trade(s)' : '';
+                const plDisplay = dayTrades.length > 0 ? (dayPl >= 0 ? '+$' + dayPl.toFixed(2) : '-$' + Math.abs(dayPl).toFixed(2)) : '';
+                
+                cell.innerHTML = '<div class="flex justify-between items-center text-xs"><span class="font-bold text-slate-300">' + day + '</span><span class="text-[10px] text-slate-500">' + countText + '</span></div><div class="my-auto text-center">' + (dayTrades.length ? '<span class="' + textPlColor + ' text-sm">' + plDisplay + '</span>' : '') + '</div>';
+                
                 cell.onclick = () => showDayTrades(dateStr, dayTrades);
                 grid.appendChild(cell);
             }
         }
 
         function showDayTrades(dateStr, trades) {
-            document.getElementById('dayDetailsTitle').textContent = `Trades on ${dateStr}`;
+            document.getElementById('dayDetailsTitle').textContent = "Trades on " + dateStr;
             const list = document.getElementById('dayTradesList');
             list.innerHTML = '';
 
             if(trades.length === 0) {
-                list.innerHTML = `<p class="text-slate-400 text-sm py-4 text-center">No trades recorded on this date.</p>`;
+                list.innerHTML = '<p class="text-slate-400 text-sm py-4 text-center">No trades recorded on this date.</p>';
             } else {
                 trades.forEach(t => {
                     const card = document.createElement('div');
                     card.className = "bg-slate-800/70 border border-slate-700/60 p-4 rounded-xl space-y-2";
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-emerald-400">${t.pair}</span>
-                            <span class="${t.pl >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-bold">$${t.pl.toFixed(2)}</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                            <div>Entry: <span class="text-white">${t.entry}</span></div>
-                            <div>Exit: <span class="text-white">${t.exit}</span></div>
-                            <div>SL: <span class="text-white">${t.stopLoss}</span> | TP: <span class="text-white">${t.takeProfit}</span></div>
-                            <div>RR: <span class="text-emerald-400">${t.rr}</span></div>
-                            <div>Lots: <span class="text-white">${t.lotSize}</span></div>
-                        </div>
-                        ${t.notes ? `<p class="text-xs text-slate-400 bg-slate-900/50 p-2 rounded"><strong>Notes:</strong> ${t.notes}</p>` : ''}
-                        ${t.screenshot ? `<a href="${t.screenshot}" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>` : ''}
-                    `;
+                    
+                    const plColorClass = t.pl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                    const notesSection = t.notes ? '<p class="text-xs text-slate-400 bg-slate-900/50 p-2 rounded"><strong>Notes:</strong> ' + t.notes + '</p>' : '';
+                    const screenshotSection = t.screenshot ? '<a href="' + t.screenshot + '" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>' : '';
+
+                    card.innerHTML = '<div class="flex justify-between items-center"><span class="font-bold text-emerald-400">' + t.pair + '</span><span class="' + plColorClass + ' font-bold">$' + t.pl.toFixed(2) + '</span></div><div class="grid grid-cols-2 gap-2 text-xs text-slate-300"><div>Entry: <span class="text-white">' + t.entry + '</span></div><div>Exit: <span class="text-white">' + t.exit + '</span></div><div>SL: <span class="text-white">' + t.stopLoss + '</span> | TP: <span class="text-white">' + t.takeProfit + '</span></div><div>RR: <span class="text-emerald-400">' + t.rr + '</span></div><div>Lots: <span class="text-white">' + t.lotSize + '</span></div></div>' + notesSection + screenshotSection;
+                    
                     list.appendChild(card);
                 });
             }
@@ -386,10 +375,10 @@
             const winRate = monthTrades.length > 0 ? ((winning / monthTrades.length) * 100).toFixed(1) : 0;
 
             const plEl = document.getElementById('statMonthlyPL');
-            plEl.textContent = `${totalPl >= 0 ? '+' : ''}$${totalPl.toFixed(2)}`;
-            plEl.className = `text-2xl font-bold mt-1 ${totalPl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+            plEl.textContent = (totalPl >= 0 ? '+' : '') + '$' + totalPl.toFixed(2);
+            plEl.className = "text-2xl font-bold mt-1 " + (totalPl >= 0 ? 'text-emerald-400' : 'text-rose-400');
 
-            document.getElementById('statWinRate').textContent = `${winRate}%`;
+            document.getElementById('statWinRate').textContent = winRate + '%';
             document.getElementById('statTotalTrades').textContent = monthTrades.length;
         }
     </script>

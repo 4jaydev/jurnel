@@ -17,7 +17,8 @@
             <p class="text-slate-400 text-sm">Sign in to track your trading performance</p>
         </div>
 
-        <form id="authForm" class="space-y-4">
+        <!-- 🟢 FIX: Added onsubmit preventDefault here -->
+        <form id="authForm" class="space-y-4" onsubmit="event.preventDefault();">
             <div>
                 <label class="block text-xs font-medium text-slate-400 mb-1">Email Address</label>
                 <input type="email" id="email" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500" placeholder="trader@example.com">
@@ -92,7 +93,6 @@
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
-                // 🟢 Shows the exact Firebase error on screen
                 showError(error.message); 
             }
         });
@@ -110,7 +110,6 @@
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
-                // 🟢 Shows the exact Firebase error on screen
                 showError(error.message);
             }
         });

@@ -50,7 +50,7 @@
         <div class="flex flex-wrap justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-xl gap-4">
             <div class="flex items-center space-x-3">
                 <button id="prevMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold cursor-pointer">&larr; Prev</button>
-                <h2 id="currentMonthYear" class="text-lg font-bold w-48 text-center text-emerald-400">September 2026</h2>
+                <h2 id="currentMonthYear" class="text-lg font-bold w-48 text-center text-emerald-400">Loading...</h2>
                 <button id="nextMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold cursor-pointer">Next &rarr;</button>
             </div>
             <div class="flex items-center space-x-2">
@@ -153,8 +153,18 @@
         </div>
     </div>
 
-    <!-- SCRIPT 1: PURE UI -->
+    <!-- ========================================== -->
+    <!-- SCRIPT 1: BULLETPROOF CALENDAR UI & STATE  -->
+    <!-- (This cannot crash from Firebase errors)   -->
+    <!-- ========================================== -->
     <script>
+        // Global State accessible everywhere
+        window.tradesData = [];
+        const initialDate = new Date();
+        window.currentYear = initialDate.getFullYear();
+        window.currentMonth = initialDate.getMonth();
+
+        // 1. Theme Toggle
         document.getElementById('themeToggle').addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             if(document.documentElement.classList.contains('dark')) {
@@ -164,10 +174,30 @@
             }
         });
 
+        // 2. Month Navigation
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            window.currentMonth--;
+            if(window.currentMonth < 0) { window.currentMonth = 11; window.currentYear--; }
+            window.renderCalendar();
+            window.updateStats();
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            window.currentMonth++;
+            if(window.currentMonth > 11) { window.currentMonth = 0; window.currentYear++; }
+            window.renderCalendar();
+            window.updateStats();
+        });
+
+        document.getElementById('pairFilter').addEventListener('change', () => {
+            window.renderCalendar();
+            window.updateStats();
+        });
+
+        // 3. Modals
         function openTradeModal(prefillDate = null) {
             document.getElementById('tradeModal').classList.remove('hidden');
             document.getElementById('tradeModal').classList.add('flex');
-            
             if (typeof prefillDate === 'string') {
                 document.getElementById('tradeDate').value = prefillDate + "T12:00";
             } else {
@@ -176,32 +206,134 @@
                 document.getElementById('tradeDate').value = now.toISOString().slice(0,16);
             }
         }
-
         function closeTradeModal() {
             document.getElementById('tradeModal').classList.add('hidden');
             document.getElementById('tradeModal').classList.remove('flex');
         }
-
         function closeDayModal() {
             document.getElementById('dayDetailsModal').classList.add('hidden');
             document.getElementById('dayDetailsModal').classList.remove('flex');
         }
+
+        // 4. Render Engine
+        window.renderCalendar = function() {
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('currentMonthYear').textContent = monthNames[window.currentMonth] + " " + window.currentYear;
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDayIndex = new Date(window.currentYear, window.currentMonth, 1).getDay();
+            const totalDays = new Date(window.currentYear, window.currentMonth + 1, 0).getDate();
+            const filterPair = document.getElementById('pairFilter').value;
+
+            // Empty padding slots
+            for(let i = 0; i < firstDayIndex; i++) {
+                const cell = document.createElement('div');
+                cell.className = "bg-slate-900/40 p-2 min-h-[100px]";
+                grid.appendChild(cell);
+            }
+
+            // Real day slots
+            for(let day = 1; day <= totalDays; day++) {
+                const dateStr = window.currentYear + "-" + String(window.currentMonth + 1).padStart(2, '0') + "-" + String(day).padStart(2, '0');
+                const dayTrades = window.tradesData.filter(t => t.date.startsWith(dateStr) && (filterPair === 'ALL' || t.pair === filterPair));
+                
+                const dayPl = dayTrades.reduce((acc, t) => acc + t.pl, 0);
+                let indicatorClass = "bg-slate-900";
+                let textPlColor = "text-slate-400";
+
+                if(dayTrades.length > 0) {
+                    if(dayPl >= 0) {
+                        indicatorClass = "bg-emerald-950/40 border-emerald-600/40";
+                        textPlColor = "text-emerald-400 font-semibold";
+                    } else {
+                        indicatorClass = "bg-rose-950/40 border-rose-600/40";
+                        textPlColor = "text-rose-400 font-semibold";
+                    }
+                }
+
+                const cell = document.createElement('div');
+                cell.className = "p-3 min-h-[100px] border border-slate-800/80 flex flex-col justify-between cursor-pointer hover:bg-slate-800/50 transition " + indicatorClass;
+                
+                const countText = dayTrades.length > 0 ? dayTrades.length + ' trade(s)' : '';
+                const plDisplay = dayTrades.length > 0 ? (dayPl >= 0 ? '+$' + dayPl.toFixed(2) : '-$' + Math.abs(dayPl).toFixed(2)) : '';
+                
+                cell.innerHTML = '<div class="flex justify-between items-center text-xs"><span class="font-bold text-slate-300">' + day + '</span><span class="text-[10px] text-slate-500">' + countText + '</span></div><div class="my-auto text-center">' + (dayTrades.length ? '<span class="' + textPlColor + ' text-sm">' + plDisplay + '</span>' : '') + '</div>';
+                
+                cell.onclick = () => {
+                    if (dayTrades.length > 0) {
+                        window.showDayTrades(dateStr, dayTrades);
+                    } else {
+                        openTradeModal(dateStr);
+                    }
+                };
+                grid.appendChild(cell);
+            }
+        };
+
+        window.updateStats = function() {
+            const filterPair = document.getElementById('pairFilter').value;
+            const monthTrades = window.tradesData.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() === window.currentMonth && d.getFullYear() === window.currentYear && (filterPair === 'ALL' || t.pair === filterPair);
+            });
+
+            const totalPl = monthTrades.reduce((acc, t) => acc + t.pl, 0);
+            const winning = monthTrades.filter(t => t.pl > 0).length;
+            const winRate = monthTrades.length > 0 ? ((winning / monthTrades.length) * 100).toFixed(1) : 0;
+
+            const plEl = document.getElementById('statMonthlyPL');
+            plEl.textContent = (totalPl >= 0 ? '+' : '') + '$' + totalPl.toFixed(2);
+            plEl.className = "text-2xl font-bold mt-1 " + (totalPl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+            document.getElementById('statWinRate').textContent = winRate + '%';
+            document.getElementById('statTotalTrades').textContent = monthTrades.length;
+        };
+
+        window.showDayTrades = function(dateStr, trades) {
+            document.getElementById('dayDetailsTitle').textContent = "Trades on " + dateStr;
+            const list = document.getElementById('dayTradesList');
+            list.innerHTML = '';
+
+            if(trades.length === 0) {
+                list.innerHTML = '<p class="text-slate-400 text-sm py-4 text-center">No trades recorded on this date.</p>';
+            } else {
+                trades.forEach(t => {
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-800/70 border border-slate-700/60 p-4 rounded-xl space-y-2";
+                    const plColorClass = t.pl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                    const notesSection = t.notes ? '<p class="text-xs text-slate-300 bg-slate-900/50 p-2 rounded"><strong>Notes:</strong> ' + t.notes + '</p>' : '';
+                    const screenshotSection = t.screenshot ? '<a href="' + t.screenshot + '" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>' : '';
+
+                    card.innerHTML = '<div class="flex justify-between items-center"><span class="font-bold text-emerald-400">' + t.pair + '</span><span class="' + plColorClass + ' font-bold">$' + t.pl.toFixed(2) + '</span></div><div class="grid grid-cols-2 gap-2 text-xs text-slate-300"><div>Entry: <span class="text-white">' + t.entry + '</span></div><div>Exit: <span class="text-white">' + t.exit + '</span></div><div>SL: <span class="text-white">' + t.stopLoss + '</span> | TP: <span class="text-white">' + t.takeProfit + '</span></div><div>RR: <span class="text-emerald-400">' + t.rr + '</span></div><div>Lots: <span class="text-white">' + t.lotSize + '</span></div></div>' + notesSection + screenshotSection;
+                    list.appendChild(card);
+                });
+            }
+            document.getElementById('dayDetailsModal').classList.remove('hidden');
+            document.getElementById('dayDetailsModal').classList.add('flex');
+        };
+
+        // Render immediately on load
+        window.renderCalendar();
     </script>
 
-    <!-- SCRIPT 2: FIREBASE & DATA LOGIC -->
+
+    <!-- ========================================== -->
+    <!-- SCRIPT 2: FIREBASE & DATA LOGIC            -->
+    <!-- (If this crashes, the UI will still work!) -->
+    <!-- ========================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firestore";
+        
+        // This import is what causes module crashes if env variables are missing
         import { firebaseConfig } from "./file.js";
 
         let app, auth, db, currentUser = null;
-        let tradesData = [];
-        
-        let currentDate = new Date();
-        let currentYear = currentDate.getFullYear();
-        let currentMonth = currentDate.getMonth();
 
+        // Logout
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
                 if (auth) await signOut(auth);
@@ -212,26 +344,7 @@
             }
         });
 
-        // Attach Month Navigation Listeners Immediately
-        document.getElementById('prevMonth').addEventListener('click', () => {
-            currentMonth--;
-            if(currentMonth < 0) { currentMonth = 11; currentYear--; }
-            renderCalendar();
-            updateStats();
-        });
-
-        document.getElementById('nextMonth').addEventListener('click', () => {
-            currentMonth++;
-            if(currentMonth > 11) { currentMonth = 0; currentYear++; }
-            renderCalendar();
-            updateStats();
-        });
-
-        document.getElementById('pairFilter').addEventListener('change', () => {
-            renderCalendar();
-            updateStats();
-        });
-
+        // Initialize Firebase
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -249,25 +362,32 @@
             console.error("Firebase connection error:", error);
         }
 
+        // Fetch Trades
         async function fetchTrades() {
             if (!currentUser || !db) return;
             try {
                 const q = query(collection(db, "trades"), where("uid", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                tradesData = [];
+                window.tradesData = []; // Update global state
                 querySnapshot.forEach((doc) => {
-                    tradesData.push({ id: doc.id, ...doc.data() });
+                    window.tradesData.push({ id: doc.id, ...doc.data() });
                 });
-                renderCalendar();
-                updateStats();
+                
+                // Re-render UI with new data
+                window.renderCalendar();
+                window.updateStats();
             } catch (e) {
                 console.error("Error fetching trades:", e);
             }
         }
 
+        // Save Trade
         document.getElementById('newTradeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!currentUser || !db) return;
+            if (!currentUser || !db) {
+                alert("Cannot save: Database not connected.");
+                return;
+            }
 
             const entry = parseFloat(document.getElementById('entryPrice').value);
             const exit = parseFloat(document.getElementById('exitPrice').value);
@@ -297,112 +417,12 @@
                 await addDoc(collection(db, "trades"), newTrade);
                 closeTradeModal();
                 document.getElementById('newTradeForm').reset();
-                fetchTrades();
+                fetchTrades(); // Refresh calendar with new trade
             } catch (err) {
                 console.error("Error adding trade:", err);
                 alert("Failed to save trade to database.");
             }
         });
-
-        function renderCalendar() {
-            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            document.getElementById('currentMonthYear').textContent = monthNames[currentMonth] + " " + currentYear;
-
-            const grid = document.getElementById('calendarGrid');
-            grid.innerHTML = '';
-
-            const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
-            const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
-            const filterPair = document.getElementById('pairFilter').value;
-
-            for(let i = 0; i < firstDayIndex; i++) {
-                const cell = document.createElement('div');
-                cell.className = "bg-slate-900/40 p-2 min-h-[100px]";
-                grid.appendChild(cell);
-            }
-
-            for(let day = 1; day <= totalDays; day++) {
-                const dateStr = currentYear + "-" + String(currentMonth + 1).padStart(2, '0') + "-" + String(day).padStart(2, '0');
-                const dayTrades = tradesData.filter(t => t.date.startsWith(dateStr) && (filterPair === 'ALL' || t.pair === filterPair));
-                
-                const dayPl = dayTrades.reduce((acc, t) => acc + t.pl, 0);
-                let indicatorClass = "bg-slate-900";
-                let textPlColor = "text-slate-400";
-                if(dayTrades.length > 0) {
-                    if(dayPl >= 0) {
-                        indicatorClass = "bg-emerald-950/40 border-emerald-600/40";
-                        textPlColor = "text-emerald-400 font-semibold";
-                    } else {
-                        indicatorClass = "bg-rose-950/40 border-rose-600/40";
-                        textPlColor = "text-rose-400 font-semibold";
-                    }
-                }
-
-                const cell = document.createElement('div');
-                cell.className = "p-3 min-h-[100px] border border-slate-800/80 flex flex-col justify-between cursor-pointer hover:bg-slate-800/50 transition " + indicatorClass;
-                
-                const countText = dayTrades.length > 0 ? dayTrades.length + ' trade(s)' : '';
-                const plDisplay = dayTrades.length > 0 ? (dayPl >= 0 ? '+$' + dayPl.toFixed(2) : '-$' + Math.abs(dayPl).toFixed(2)) : '';
-                
-                cell.innerHTML = '<div class="flex justify-between items-center text-xs"><span class="font-bold text-slate-300">' + day + '</span><span class="text-[10px] text-slate-500">' + countText + '</span></div><div class="my-auto text-center">' + (dayTrades.length ? '<span class="' + textPlColor + ' text-sm">' + plDisplay + '</span>' : '') + '</div>';
-                
-                cell.onclick = () => {
-                    if (dayTrades.length > 0) {
-                        showDayTrades(dateStr, dayTrades);
-                    } else {
-                        openTradeModal(dateStr);
-                    }
-                };
-                grid.appendChild(cell);
-            }
-        }
-
-        window.showDayTrades = function(dateStr, trades) {
-            document.getElementById('dayDetailsTitle').textContent = "Trades on " + dateStr;
-            const list = document.getElementById('dayTradesList');
-            list.innerHTML = '';
-
-            if(trades.length === 0) {
-                list.innerHTML = '<p class="text-slate-400 text-sm py-4 text-center">No trades recorded on this date.</p>';
-            } else {
-                trades.forEach(t => {
-                    const card = document.createElement('div');
-                    card.className = "bg-slate-800/70 border border-slate-700/60 p-4 rounded-xl space-y-2";
-                    
-                    const plColorClass = t.pl >= 0 ? 'text-emerald-400' : 'text-rose-400';
-                    const notesSection = t.notes ? '<p class="text-xs text-slate-300 bg-slate-900/50 p-2 rounded"><strong>Notes:</strong> ' + t.notes + '</p>' : '';
-                    const screenshotSection = t.screenshot ? '<a href="' + t.screenshot + '" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>' : '';
-
-                    card.innerHTML = '<div class="flex justify-between items-center"><span class="font-bold text-emerald-400">' + t.pair + '</span><span class="' + plColorClass + ' font-bold">$' + t.pl.toFixed(2) + '</span></div><div class="grid grid-cols-2 gap-2 text-xs text-slate-300"><div>Entry: <span class="text-white">' + t.entry + '</span></div><div>Exit: <span class="text-white">' + t.exit + '</span></div><div>SL: <span class="text-white">' + t.stopLoss + '</span> | TP: <span class="text-white">' + t.takeProfit + '</span></div><div>RR: <span class="text-emerald-400">' + t.rr + '</span></div><div>Lots: <span class="text-white">' + t.lotSize + '</span></div></div>' + notesSection + screenshotSection;
-                    
-                    list.appendChild(card);
-                });
-            }
-            document.getElementById('dayDetailsModal').classList.remove('hidden');
-            document.getElementById('dayDetailsModal').classList.add('flex');
-        }
-
-        function updateStats() {
-            const filterPair = document.getElementById('pairFilter').value;
-            const monthTrades = tradesData.filter(t => {
-                const d = new Date(t.date);
-                return d.getMonth() === currentMonth && d.getFullYear() === currentYear && (filterPair === 'ALL' || t.pair === filterPair);
-            });
-
-            const totalPl = monthTrades.reduce((acc, t) => acc + t.pl, 0);
-            const winning = monthTrades.filter(t => t.pl > 0).length;
-            const winRate = monthTrades.length > 0 ? ((winning / monthTrades.length) * 100).toFixed(1) : 0;
-
-            const plEl = document.getElementById('statMonthlyPL');
-            plEl.textContent = (totalPl >= 0 ? '+' : '') + '$' + totalPl.toFixed(2);
-            plEl.className = "text-2xl font-bold mt-1 " + (totalPl >= 0 ? 'text-emerald-400' : 'text-rose-400');
-
-            document.getElementById('statWinRate').textContent = winRate + '%';
-            document.getElementById('statTotalTrades').textContent = monthTrades.length;
-        }
-
-        // Initial render on page load
-        renderCalendar();
     </script>
 </body>
 </html>

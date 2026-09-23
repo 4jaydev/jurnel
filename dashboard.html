@@ -49,9 +49,9 @@
         <!-- Controls & Filters -->
         <div class="flex flex-wrap justify-between items-center bg-slate-900 border border-slate-800 p-4 rounded-xl gap-4">
             <div class="flex items-center space-x-3">
-                <button id="prevMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">&larr;</button>
-                <h2 id="currentMonthYear" class="text-lg font-semibold w-40 text-center">Loading...</h2>
-                <button id="nextMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">&rarr;</button>
+                <button id="prevMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold">&larr; Prev</button>
+                <h2 id="currentMonthYear" class="text-lg font-bold w-48 text-center text-emerald-400">September 2026</h2>
+                <button id="nextMonth" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-sm font-semibold">Next &rarr;</button>
             </div>
             <div class="flex items-center space-x-2">
                 <label class="text-sm text-slate-400">Filter Pair:</label>
@@ -198,7 +198,7 @@
         let app, auth, db, currentUser = null;
         let tradesData = [];
         
-        // 🟢 FIX: Explicitly set to the current live date
+        // Initialize explicitly to current live date
         let currentDate = new Date();
         let currentYear = currentDate.getFullYear();
         let currentMonth = currentDate.getMonth();
@@ -370,7 +370,7 @@
                     card.className = "bg-slate-800/70 border border-slate-700/60 p-4 rounded-xl space-y-2";
                     
                     const plColorClass = t.pl >= 0 ? 'text-emerald-400' : 'text-rose-400';
-                    const notesSection = t.notes ? '<p class="text-xs text-slate-900/50 p-2 rounded"><strong>Notes:</strong> ' + t.notes + '</p>' : '';
+                    const notesSection = t.notes ? '<p class="text-xs text-slate-300 bg-slate-900/50 p-2 rounded"><strong>Notes:</strong> ' + t.notes + '</p>' : '';
                     const screenshotSection = t.screenshot ? '<a href="' + t.screenshot + '" target="_blank" class="text-xs text-indigo-400 underline block mt-1">View Chart Screenshot</a>' : '';
 
                     card.innerHTML = '<div class="flex justify-between items-center"><span class="font-bold text-emerald-400">' + t.pair + '</span><span class="' + plColorClass + ' font-bold">$' + t.pl.toFixed(2) + '</span></div><div class="grid grid-cols-2 gap-2 text-xs text-slate-300"><div>Entry: <span class="text-white">' + t.entry + '</span></div><div>Exit: <span class="text-white">' + t.exit + '</span></div><div>SL: <span class="text-white">' + t.stopLoss + '</span> | TP: <span class="text-white">' + t.takeProfit + '</span></div><div>RR: <span class="text-emerald-400">' + t.rr + '</span></div><div>Lots: <span class="text-white">' + t.lotSize + '</span></div></div>' + notesSection + screenshotSection;

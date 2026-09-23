@@ -194,12 +194,18 @@
             }
         });
 
-        window.openTradeModal = () => {
+        // UPDATED: Modal opening logic to accept a prefilled date
+        window.openTradeModal = (prefillDate = null) => {
             document.getElementById('tradeModal').classList.remove('hidden');
             document.getElementById('tradeModal').classList.add('flex');
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('tradeDate').value = now.toISOString().slice(0,16);
+            
+            if (typeof prefillDate === 'string') {
+                document.getElementById('tradeDate').value = prefillDate + "T12:00";
+            } else {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                document.getElementById('tradeDate').value = now.toISOString().slice(0,16);
+            }
         };
 
         window.closeTradeModal = () => {
@@ -333,7 +339,15 @@
                 
                 cell.innerHTML = '<div class="flex justify-between items-center text-xs"><span class="font-bold text-slate-300">' + day + '</span><span class="text-[10px] text-slate-500">' + countText + '</span></div><div class="my-auto text-center">' + (dayTrades.length ? '<span class="' + textPlColor + ' text-sm">' + plDisplay + '</span>' : '') + '</div>';
                 
-                cell.onclick = () => showDayTrades(dateStr, dayTrades);
+                // UPDATED: Click logic to open trade modal on empty days
+                cell.onclick = () => {
+                    if (dayTrades.length > 0) {
+                        showDayTrades(dateStr, dayTrades);
+                    } else {
+                        openTradeModal(dateStr);
+                    }
+                };
+                
                 grid.appendChild(cell);
             }
         }

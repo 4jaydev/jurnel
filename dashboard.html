@@ -17,7 +17,6 @@
                 <span class="text-xl font-bold text-emerald-400">📈 FX Journal</span>
             </div>
             <div class="flex items-center space-x-4">
-                <button id="themeToggle" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-sm">🌓 Theme</button>
                 <button id="logoutBtn" class="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg hover:bg-rose-600 hover:text-white transition text-sm font-medium">Logout</button>
             </div>
         </div>
@@ -155,7 +154,6 @@
 
     <!-- ========================================== -->
     <!-- SCRIPT 1: BULLETPROOF CALENDAR UI & STATE  -->
-    <!-- (This cannot crash from Firebase errors)   -->
     <!-- ========================================== -->
     <script>
         // Global State accessible everywhere
@@ -164,17 +162,7 @@
         window.currentYear = initialDate.getFullYear();
         window.currentMonth = initialDate.getMonth();
 
-        // 1. Theme Toggle
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-            if(document.documentElement.classList.contains('dark')) {
-                document.body.className = "bg-slate-950 text-slate-100 min-h-screen transition-colors duration-200";
-            } else {
-                document.body.className = "bg-slate-50 text-slate-900 min-h-screen transition-colors duration-200";
-            }
-        });
-
-        // 2. Month Navigation
+        // 1. Month Navigation
         document.getElementById('prevMonth').addEventListener('click', () => {
             window.currentMonth--;
             if(window.currentMonth < 0) { window.currentMonth = 11; window.currentYear--; }
@@ -194,7 +182,7 @@
             window.updateStats();
         });
 
-        // 3. Modals
+        // 2. Modals
         function openTradeModal(prefillDate = null) {
             document.getElementById('tradeModal').classList.remove('hidden');
             document.getElementById('tradeModal').classList.add('flex');
@@ -215,7 +203,7 @@
             document.getElementById('dayDetailsModal').classList.remove('flex');
         }
 
-        // 4. Render Engine
+        // 3. Render Engine
         window.renderCalendar = function() {
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             document.getElementById('currentMonthYear').textContent = monthNames[window.currentMonth] + " " + window.currentYear;
@@ -321,14 +309,12 @@
 
     <!-- ========================================== -->
     <!-- SCRIPT 2: FIREBASE & DATA LOGIC            -->
-    <!-- (If this crashes, the UI will still work!) -->
     <!-- ========================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firestore";
         
-        // This import is what causes module crashes if env variables are missing
         import { firebaseConfig } from "./file.js";
 
         let app, auth, db, currentUser = null;
@@ -368,12 +354,11 @@
             try {
                 const q = query(collection(db, "trades"), where("uid", "==", currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                window.tradesData = []; // Update global state
+                window.tradesData = []; 
                 querySnapshot.forEach((doc) => {
                     window.tradesData.push({ id: doc.id, ...doc.data() });
                 });
                 
-                // Re-render UI with new data
                 window.renderCalendar();
                 window.updateStats();
             } catch (e) {
@@ -417,7 +402,7 @@
                 await addDoc(collection(db, "trades"), newTrade);
                 closeTradeModal();
                 document.getElementById('newTradeForm').reset();
-                fetchTrades(); // Refresh calendar with new trade
+                fetchTrades(); 
             } catch (err) {
                 console.error("Error adding trade:", err);
                 alert("Failed to save trade to database.");

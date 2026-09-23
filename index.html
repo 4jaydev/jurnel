@@ -92,7 +92,8 @@
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
-                showError("Invalid email or password.");
+                // 🟢 Shows the exact Firebase error on screen
+                showError(error.message); 
             }
         });
 
@@ -109,7 +110,8 @@
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
-                showError("Failed to create account. Email may already be in use.");
+                // 🟢 Shows the exact Firebase error on screen
+                showError(error.message);
             }
         });
     </script>

@@ -333,21 +333,22 @@
             }
         });
 
-        // Initialize Firebase and Route Guard
+        // 🟢 FIX: If Firebase crashes, it will now visibly tell you WHY on the screen!
         try {
+            // Check if config exists
+            if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                throw new Error("firebaseConfig is missing or empty. Check file.js and your Vercel Environment Variables.");
+            }
+
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
 
-            // 🟢 SECURITY: This determines what the user sees
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     currentUser = user;
                     
-                    // Hide the loading spinner
                     document.getElementById('loadingScreen').classList.add('hidden');
-                    
-                    // Show the dashboard smoothly
                     const appWrapper = document.getElementById('appWrapper');
                     appWrapper.classList.remove('hidden');
                     setTimeout(() => {
@@ -356,12 +357,26 @@
 
                     fetchTrades();
                 } else {
-                    // Kick out unauthorized users instantly (removes back-button bypass)
                     window.location.replace('index.html');
                 }
             });
         } catch (error) {
             console.error("Firebase connection error:", error);
+            
+            // Replaces the spinning loader with a bold error message
+            const loader = document.getElementById('loadingScreen');
+            loader.classList.remove('animate-pulse');
+            loader.innerHTML = `
+                <div class="text-center p-6 bg-slate-900 border border-rose-500/30 rounded-xl max-w-md mx-4">
+                    <div class="text-rose-500 text-5xl mb-4">⚠️</div>
+                    <h2 class="text-xl font-bold text-rose-400 mb-2">Database Connection Failed</h2>
+                    <p class="text-slate-300 text-sm mb-4">Firebase crashed before it could log you in.</p>
+                    <div class="bg-slate-950 p-3 rounded text-left text-xs font-mono text-rose-300 border border-rose-500/20">
+                        ${error.message}
+                    </div>
+                    <a href="index.html" class="inline-block mt-6 px-5 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition">Go Back</a>
+                </div>
+            `;
         }
 
         async function fetchTrades() {

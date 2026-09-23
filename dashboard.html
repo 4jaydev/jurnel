@@ -158,6 +158,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firestore";
+        
+        // Imports your secure config from file.js
         import { firebaseConfig } from "./file.js";
 
         const app = initializeApp(firebaseConfig);
@@ -194,7 +196,6 @@
             }
         });
 
-        // UPDATED: Modal opening logic to accept a prefilled date
         window.openTradeModal = (prefillDate = null) => {
             document.getElementById('tradeModal').classList.remove('hidden');
             document.getElementById('tradeModal').classList.add('flex');
@@ -339,7 +340,6 @@
                 
                 cell.innerHTML = '<div class="flex justify-between items-center text-xs"><span class="font-bold text-slate-300">' + day + '</span><span class="text-[10px] text-slate-500">' + countText + '</span></div><div class="my-auto text-center">' + (dayTrades.length ? '<span class="' + textPlColor + ' text-sm">' + plDisplay + '</span>' : '') + '</div>';
                 
-                // UPDATED: Click logic to open trade modal on empty days
                 cell.onclick = () => {
                     if (dayTrades.length > 0) {
                         showDayTrades(dateStr, dayTrades);

@@ -333,7 +333,7 @@
                         <span class="text-[10px] text-slate-500">${dayTrades.length ? dayTrades.length + ' trade(s)' : ''}</span>
                     </div>
                     <div class="my-auto text-center">
-                        ${dayTrades.length ? `<span class="${textPlColor} text-sm">${dayPl >= <div>$ +${dayPl.toFixed(2)}</div> : '$ ' + dayPl.toFixed(2)}</span>` : ''}
+                        ${dayTrades.length ? `<span class="${textPlColor} text-sm">${dayPl >= 0 ? '+$' + dayPl.toFixed(2) : '-$' + Math.abs(dayPl).toFixed(2)}</span>` : ''}
                     </div>
                 `;
                 cell.onclick = () => showDayTrades(dateStr, dayTrades);

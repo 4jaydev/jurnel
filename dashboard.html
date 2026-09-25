@@ -317,11 +317,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         
         import { firebaseConfig } from "./file.js";
 
-        let app, auth, db, currentUser = null;
+        let app, auth, db, firestoreApi, currentUser = null;
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
@@ -342,7 +341,6 @@
 
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
-            db = getFirestore(app);
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -355,7 +353,7 @@
                         appWrapper.classList.remove('opacity-0');
                     }, 50);
 
-                    fetchTrades();
+                    loadFirestoreAndTrades();
                 } else {
                     window.location.replace('index.html');
                 }
@@ -379,11 +377,40 @@
             `;
         }
 
-        async function fetchTrades() {
-            if (!currentUser || !db) return;
+        async function loadFirestoreAndTrades() {
             try {
-                const q = query(collection(db, "trades"), where("uid", "==", currentUser.uid));
-                const querySnapshot = await getDocs(q);
+                firestoreApi = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+                db = firestoreApi.getFirestore(app);
+                fetchTrades();
+            } catch (error) {
+                console.error("Firestore connection error:", error);
+                showDatabaseError(error);
+            }
+        }
+
+        function showDatabaseError(error) {
+            const loader = document.getElementById('loadingScreen');
+            loader.classList.remove('hidden', 'animate-pulse');
+            loader.innerHTML = `
+                <div class="text-center p-6 bg-slate-900 border border-rose-500/30 rounded-xl max-w-md mx-4">
+                    <div class="text-rose-500 text-5xl mb-4">⚠️</div>
+                    <h2 class="text-xl font-bold text-rose-400 mb-2">Database Connection Failed</h2>
+                    <p class="text-slate-300 text-sm mb-4">Your account is authenticated, but trades could not be loaded.</p>
+                    <div class="bg-slate-950 p-3 rounded text-left text-xs font-mono text-rose-300 border border-rose-500/20">
+                        ${error.message}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchTrades() {
+            if (!currentUser || !db || !firestoreApi) return;
+            try {
+                const q = firestoreApi.query(
+                    firestoreApi.collection(db, "trades"),
+                    firestoreApi.where("uid", "==", currentUser.uid)
+                );
+                const querySnapshot = await firestoreApi.getDocs(q);
                 window.tradesData = []; 
                 querySnapshot.forEach((doc) => {
                     window.tradesData.push({ id: doc.id, ...doc.data() });
@@ -428,7 +455,7 @@
             };
 
             try {
-                await addDoc(collection(db, "trades"), newTrade);
+                await firestoreApi.addDoc(firestoreApi.collection(db, "trades"), newTrade);
                 closeTradeModal();
                 document.getElementById('newTradeForm').reset();
                 fetchTrades(); 

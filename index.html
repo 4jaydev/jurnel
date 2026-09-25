@@ -90,7 +90,6 @@
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
                 showError(error.message); 
@@ -107,7 +106,6 @@
 
             try {
                 await createUserWithEmailAndPassword(auth, email, password);
-                window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error(error);
                 showError(error.message);

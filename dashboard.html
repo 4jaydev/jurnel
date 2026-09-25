@@ -25,6 +25,7 @@
             <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center space-x-3">
                     <span class="text-xl font-bold text-emerald-400">📈 FX Journal</span>
+                    <span id="userEmail" class="text-xs text-slate-400">Loading...</span>
                 </div>
                 <div class="flex items-center space-x-4">
                     <button id="logoutBtn" class="bg-rose-600/20 text-rose-400 border border-rose-600/30 px-3 py-1.5 rounded-lg hover:bg-rose-600 hover:text-white transition text-sm font-medium">Logout</button>
@@ -307,7 +308,9 @@
             document.getElementById('dayDetailsModal').classList.add('flex');
         };
 
+        // Initialize calendar on page load
         window.renderCalendar();
+        window.updateStats();
     </script>
 
 
@@ -322,89 +325,109 @@
 
         let app, auth, db, firestoreApi, currentUser = null;
 
+        // ✅ FIXED: Add timeout to prevent infinite loading
+        const loadingTimeout = setTimeout(() => {
+            console.error("❌ Loading timeout - Firebase took too long");
+            hideLoadingScreen();
+        }, 10000); // 10 seconds timeout
+
+        function hideLoadingScreen() {
+            clearTimeout(loadingTimeout);
+            const loadingScreen = document.getElementById('loadingScreen');
+            loadingScreen.classList.add('hidden');
+            const appWrapper = document.getElementById('appWrapper');
+            appWrapper.classList.remove('hidden');
+            setTimeout(() => {
+                appWrapper.classList.remove('opacity-0');
+            }, 50);
+        }
+
+        function showError(message) {
+            const loadingScreen = document.getElementById('loadingScreen');
+            loadingScreen.classList.remove('animate-pulse');
+            loadingScreen.innerHTML = `
+                <div class="text-center p-6 bg-slate-900 border border-rose-500/30 rounded-xl max-w-md mx-4">
+                    <div class="text-rose-500 text-5xl mb-4">⚠️</div>
+                    <h2 class="text-xl font-bold text-rose-400 mb-2">Error Loading Dashboard</h2>
+                    <p class="text-slate-300 text-sm mb-4">${message}</p>
+                    <a href="index.html" class="inline-block mt-6 px-5 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition">Go Back to Login</a>
+                </div>
+            `;
+        }
+
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
-                if (auth) await signOut(auth);
+                if (auth) {
+                    await signOut(auth);
+                    console.log("✅ Logged out successfully");
+                }
             } catch (error) {
-                console.error("Logout Error:", error);
+                console.error("❌ Logout Error:", error);
             } finally {
                 window.location.replace('index.html'); 
             }
         });
 
-        // 🟢 FIX: If Firebase crashes, it will now visibly tell you WHY on the screen!
         try {
-            // Check if config exists
             if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-                throw new Error("firebaseConfig is missing or empty. Check file.js and your Vercel Environment Variables.");
+                throw new Error("firebaseConfig is missing. Check file.js and Vercel environment variables.");
             }
 
+            console.log("🔥 Initializing Firebase...");
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
+            console.log("✅ Firebase initialized");
 
-            onAuthStateChanged(auth, (user) => {
+            // ✅ FIXED: Auth state listener with better error handling
+            onAuthStateChanged(auth, async (user) => {
+                console.log("🔍 Auth state changed:", user ? "Logged in" : "Logged out");
+                
                 if (user) {
                     currentUser = user;
+                    console.log("✅ User authenticated:", user.email);
+                    document.getElementById('userEmail').textContent = user.email;
                     
-                    document.getElementById('loadingScreen').classList.add('hidden');
-                    const appWrapper = document.getElementById('appWrapper');
-                    appWrapper.classList.remove('hidden');
-                    setTimeout(() => {
-                        appWrapper.classList.remove('opacity-0');
-                    }, 50);
-
-                    loadFirestoreAndTrades();
+                    try {
+                        await loadFirestoreAndTrades();
+                        hideLoadingScreen();
+                    } catch (error) {
+                        console.error("❌ Firestore error:", error);
+                        showError("Failed to load Firestore: " + error.message);
+                    }
                 } else {
+                    console.log("❌ No user - redirecting to login");
+                    clearTimeout(loadingTimeout);
                     window.location.replace('index.html');
                 }
             });
         } catch (error) {
-            console.error("Firebase connection error:", error);
-            
-            // Replaces the spinning loader with a bold error message
-            const loader = document.getElementById('loadingScreen');
-            loader.classList.remove('animate-pulse');
-            loader.innerHTML = `
-                <div class="text-center p-6 bg-slate-900 border border-rose-500/30 rounded-xl max-w-md mx-4">
-                    <div class="text-rose-500 text-5xl mb-4">⚠️</div>
-                    <h2 class="text-xl font-bold text-rose-400 mb-2">Database Connection Failed</h2>
-                    <p class="text-slate-300 text-sm mb-4">Firebase crashed before it could log you in.</p>
-                    <div class="bg-slate-950 p-3 rounded text-left text-xs font-mono text-rose-300 border border-rose-500/20">
-                        ${error.message}
-                    </div>
-                    <a href="index.html" class="inline-block mt-6 px-5 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition">Go Back</a>
-                </div>
-            `;
+            console.error("❌ Firebase init error:", error);
+            showError(error.message);
         }
 
         async function loadFirestoreAndTrades() {
+            console.log("📦 Loading Firestore...");
+            if (!currentUser) throw new Error("No user found");
+
             try {
                 firestoreApi = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
                 db = firestoreApi.getFirestore(app);
-                fetchTrades();
+                console.log("✅ Firestore loaded");
+                
+                await fetchTrades();
             } catch (error) {
-                console.error("Firestore connection error:", error);
-                showDatabaseError(error);
+                console.error("❌ Firestore connection error:", error);
+                throw error;
             }
         }
 
-        function showDatabaseError(error) {
-            const loader = document.getElementById('loadingScreen');
-            loader.classList.remove('hidden', 'animate-pulse');
-            loader.innerHTML = `
-                <div class="text-center p-6 bg-slate-900 border border-rose-500/30 rounded-xl max-w-md mx-4">
-                    <div class="text-rose-500 text-5xl mb-4">⚠️</div>
-                    <h2 class="text-xl font-bold text-rose-400 mb-2">Database Connection Failed</h2>
-                    <p class="text-slate-300 text-sm mb-4">Your account is authenticated, but trades could not be loaded.</p>
-                    <div class="bg-slate-950 p-3 rounded text-left text-xs font-mono text-rose-300 border border-rose-500/20">
-                        ${error.message}
-                    </div>
-                </div>
-            `;
-        }
-
         async function fetchTrades() {
-            if (!currentUser || !db || !firestoreApi) return;
+            console.log("📥 Fetching trades from database...");
+            if (!currentUser || !db || !firestoreApi) {
+                console.warn("⚠️ Missing dependencies - skipping fetch");
+                return;
+            }
+
             try {
                 const q = firestoreApi.query(
                     firestoreApi.collection(db, "trades"),
@@ -412,56 +435,66 @@
                 );
                 const querySnapshot = await firestoreApi.getDocs(q);
                 window.tradesData = []; 
+                
                 querySnapshot.forEach((doc) => {
                     window.tradesData.push({ id: doc.id, ...doc.data() });
                 });
                 
+                console.log("✅ Trades loaded:", window.tradesData.length);
                 window.renderCalendar();
                 window.updateStats();
             } catch (e) {
-                console.error("Error fetching trades:", e);
+                console.error("❌ Error fetching trades:", e);
+                // Don't throw - show calendar even if no trades
+                window.renderCalendar();
+                window.updateStats();
             }
         }
 
+        // ✅ FIXED: Trade form submission with better error handling
         document.getElementById('newTradeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
             if (!currentUser || !db) {
-                alert("Cannot save: Database not connected.");
+                alert("❌ Cannot save: User or database not ready.");
                 return;
             }
 
-            const entry = parseFloat(document.getElementById('entryPrice').value);
-            const exit = parseFloat(document.getElementById('exitPrice').value);
-            const sl = parseFloat(document.getElementById('stopLoss').value);
-            const tp = parseFloat(document.getElementById('takeProfit').value);
-            const risk = Math.abs(entry - sl);
-            const reward = Math.abs(tp - entry);
-            const rr = risk > 0 ? (reward / risk).toFixed(2) : "0.00";
-
-            const newTrade = {
-                uid: currentUser.uid,
-                pair: document.getElementById('tradePair').value,
-                date: document.getElementById('tradeDate').value,
-                entry,
-                exit,
-                lotSize: parseFloat(document.getElementById('lotSize').value),
-                stopLoss: sl,
-                takeProfit: tp,
-                pl: parseFloat(document.getElementById('tradePL').value),
-                notes: document.getElementById('tradeNotes').value,
-                screenshot: document.getElementById('tradeScreenshot').value,
-                rr: rr + ":1",
-                createdAt: new Date().toISOString()
-            };
-
             try {
+                const entry = parseFloat(document.getElementById('entryPrice').value);
+                const exit = parseFloat(document.getElementById('exitPrice').value);
+                const sl = parseFloat(document.getElementById('stopLoss').value);
+                const tp = parseFloat(document.getElementById('takeProfit').value);
+                const risk = Math.abs(entry - sl);
+                const reward = Math.abs(tp - entry);
+                const rr = risk > 0 ? (reward / risk).toFixed(2) : "0.00";
+
+                const newTrade = {
+                    uid: currentUser.uid,
+                    pair: document.getElementById('tradePair').value,
+                    date: document.getElementById('tradeDate').value,
+                    entry,
+                    exit,
+                    lotSize: parseFloat(document.getElementById('lotSize').value),
+                    stopLoss: sl,
+                    takeProfit: tp,
+                    pl: parseFloat(document.getElementById('tradePL').value),
+                    notes: document.getElementById('tradeNotes').value,
+                    screenshot: document.getElementById('tradeScreenshot').value,
+                    rr: rr + ":1",
+                    createdAt: new Date().toISOString()
+                };
+
+                console.log("💾 Saving trade...", newTrade);
                 await firestoreApi.addDoc(firestoreApi.collection(db, "trades"), newTrade);
+                console.log("✅ Trade saved successfully");
+                
                 closeTradeModal();
                 document.getElementById('newTradeForm').reset();
-                fetchTrades(); 
+                await fetchTrades();
             } catch (err) {
-                console.error("Error adding trade:", err);
-                alert("Failed to save trade to database.");
+                console.error("❌ Error adding trade:", err);
+                alert("❌ Failed to save trade: " + err.message);
             }
         });
     </script>

@@ -17,7 +17,7 @@
             <p class="text-slate-400 text-sm">Sign in to track your trading performance</p>
         </div>
 
-        <!-- 🟢 FIX: Added onsubmit preventDefault here -->
+        <!-- Login Form -->
         <form id="authForm" class="space-y-4" onsubmit="event.preventDefault();">
             <div>
                 <label class="block text-xs font-medium text-slate-400 mb-1">Email Address</label>
@@ -53,18 +53,23 @@
     <!-- FIREBASE AUTHENTICATION LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         
         // Securely import config from file.js
         import { firebaseConfig } from "./file.js";
 
         let app, auth;
         const errorMessageEl = document.getElementById('errorMessage');
+        const loginBtn = document.getElementById('loginBtn');
+        const signupBtn = document.getElementById('signupBtn');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
 
+        // Initialize Firebase
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
-            await signOut(auth);
+            console.log("Firebase initialized successfully");
         } catch (error) {
             console.error("Firebase init error:", error);
             showError("Cannot connect to database. Check Vercel environment variables.");
@@ -75,34 +80,107 @@
             errorMessageEl.classList.remove('hidden');
         }
 
-        // Login Function
-        document.getElementById('loginBtn').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            if(!email || !password) return showError("Please enter both email and password.");
+        function hideError() {
+            errorMessageEl.classList.add('hidden');
+        }
 
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                console.error(error);
-                showError(error.message); 
+        // Clear error message when typing
+        emailInput.addEventListener('input', hideError);
+        passwordInput.addEventListener('input', hideError);
+
+        // ✅ Auth State Listener - Redirect after successful login
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("✅ User logged in:", user.email);
+                // Redirect to dashboard (change path as needed)
+                window.location.href = "/dashboard.html";
             }
         });
 
-        // Sign Up Function
-        document.getElementById('signupBtn').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            if(!email || !password) return showError("Please enter both email and password.");
-            if(password.length < 6) return showError("Password must be at least 6 characters.");
+        // ✅ Login Function with Loading State
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if(!email || !password) {
+                return showError("Please enter both email and password.");
+            }
 
             try {
-                await createUserWithEmailAndPassword(auth, email, password);
+                loginBtn.disabled = true;
+                loginBtn.textContent = "🔄 Signing in...";
+                hideError();
+                
+                await signInWithEmailAndPassword(auth, email, password);
+                // Auth state listener will handle redirect
+                
             } catch (error) {
-                console.error(error);
-                showError(error.message);
+                console.error("Login error:", error);
+                
+                // User-friendly error messages
+                if (error.code === 'auth/user-not-found') {
+                    showError("No account found with this email.");
+                } else if (error.code === 'auth/wrong-password') {
+                    showError("Incorrect password.");
+                } else if (error.code === 'auth/invalid-email') {
+                    showError("Invalid email format.");
+                } else if (error.code === 'auth/user-disabled') {
+                    showError("This account has been disabled.");
+                } else {
+                    showError(error.message);
+                }
+                
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Sign In";
+            }
+        });
+
+        // ✅ Sign Up Function with Loading State
+        signupBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if(!email || !password) {
+                return showError("Please enter both email and password.");
+            }
+            
+            if(password.length < 6) {
+                return showError("Password must be at least 6 characters.");
+            }
+
+            try {
+                signupBtn.disabled = true;
+                signupBtn.textContent = "⏳ Creating account...";
+                hideError();
+                
+                await createUserWithEmailAndPassword(auth, email, password);
+                // Auth state listener will handle redirect
+                
+            } catch (error) {
+                console.error("Sign up error:", error);
+                
+                // User-friendly error messages
+                if (error.code === 'auth/email-already-in-use') {
+                    showError("Email already in use. Try logging in.");
+                } else if (error.code === 'auth/weak-password') {
+                    showError("Password is too weak. Use at least 6 characters.");
+                } else if (error.code === 'auth/invalid-email') {
+                    showError("Invalid email format.");
+                } else {
+                    showError(error.message);
+                }
+                
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.textContent = "Create New Account";
+            }
+        });
+
+        // Allow Enter key to submit
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loginBtn.click();
             }
         });
     </script>

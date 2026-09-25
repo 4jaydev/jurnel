@@ -317,13 +317,36 @@
     <!-- ========================================== -->
     <!-- SCRIPT 2: FIREBASE AUTHENTICATION & DATA   -->
     <!-- ========================================== -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        
-        import { firebaseConfig } from "./file.js";
+    <!-- ✅ FIXED: Load Firebase from CDN using COMPAT versions -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-        let app, auth, db, firestoreApi, currentUser = null;
+    <script>
+        // ✅ Import config from your external file
+        // Make sure file.js exports firebaseConfig
+        let firebaseConfig = {};
+        
+        // Try to load from file.js, fallback if it fails
+        fetch('./file.js')
+            .then(r => r.text())
+            .then(text => {
+                // Extract the config object from file.js
+                const match = text.match(/export\s+const\s+firebaseConfig\s*=\s*({[\s\S]*?});/);
+                if (match) {
+                    firebaseConfig = eval('(' + match[1] + ')');
+                    console.log("✅ Config loaded from file.js");
+                    initializeFirebase();
+                } else {
+                    throw new Error("firebaseConfig not found in file.js");
+                }
+            })
+            .catch(err => {
+                console.error("❌ Could not load config:", err);
+                showError("Configuration file (file.js) not found or invalid. Please check file.js exists and contains firebaseConfig.");
+            });
+
+        let app, auth, db, currentUser = null;
 
         // ✅ FIXED: Add timeout to prevent infinite loading
         const loadingTimeout = setTimeout(() => {
@@ -355,88 +378,74 @@
             `;
         }
 
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            try {
-                if (auth) {
-                    await signOut(auth);
-                    console.log("✅ Logged out successfully");
-                }
-            } catch (error) {
-                console.error("❌ Logout Error:", error);
-            } finally {
-                window.location.replace('index.html'); 
-            }
-        });
-
-        try {
-            if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-                throw new Error("firebaseConfig is missing. Check file.js and Vercel environment variables.");
-            }
-
-            console.log("🔥 Initializing Firebase...");
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            console.log("✅ Firebase initialized");
-
-            // ✅ FIXED: Auth state listener with better error handling
-            onAuthStateChanged(auth, async (user) => {
-                console.log("🔍 Auth state changed:", user ? "Logged in" : "Logged out");
-                
-                if (user) {
-                    currentUser = user;
-                    console.log("✅ User authenticated:", user.email);
-                    document.getElementById('userEmail').textContent = user.email;
-                    
-                    try {
-                        await loadFirestoreAndTrades();
-                        hideLoadingScreen();
-                    } catch (error) {
-                        console.error("❌ Firestore error:", error);
-                        showError("Failed to load Firestore: " + error.message);
+        function initializeFirebase() {
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    if (auth) {
+                        await firebase.auth().signOut();
+                        console.log("✅ Logged out successfully");
                     }
-                } else {
-                    console.log("❌ No user - redirecting to login");
-                    clearTimeout(loadingTimeout);
-                    window.location.replace('index.html');
+                } catch (error) {
+                    console.error("❌ Logout Error:", error);
+                } finally {
+                    window.location.replace('index.html'); 
                 }
             });
-        } catch (error) {
-            console.error("❌ Firebase init error:", error);
-            showError(error.message);
-        }
-
-        async function loadFirestoreAndTrades() {
-            console.log("📦 Loading Firestore...");
-            if (!currentUser) throw new Error("No user found");
 
             try {
-                firestoreApi = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-                db = firestoreApi.getFirestore(app);
-                console.log("✅ Firestore loaded");
-                
-                await fetchTrades();
+                if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("firebaseConfig is missing. Check file.js and Vercel environment variables.");
+                }
+
+                console.log("🔥 Initializing Firebase...");
+                app = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                console.log("✅ Firebase initialized");
+
+                // ✅ FIXED: Auth state listener with better error handling
+                firebase.auth().onAuthStateChanged(async (user) => {
+                    console.log("🔍 Auth state changed:", user ? "Logged in" : "Logged out");
+                    
+                    if (user) {
+                        currentUser = user;
+                        console.log("✅ User authenticated:", user.email);
+                        document.getElementById('userEmail').textContent = user.email;
+                        
+                        try {
+                            await fetchTrades();
+                            hideLoadingScreen();
+                        } catch (error) {
+                            console.error("❌ Firestore error:", error);
+                            showError("Failed to load trades: " + error.message);
+                        }
+                    } else {
+                        console.log("❌ No user - redirecting to login");
+                        clearTimeout(loadingTimeout);
+                        window.location.replace('index.html');
+                    }
+                });
             } catch (error) {
-                console.error("❌ Firestore connection error:", error);
-                throw error;
+                console.error("❌ Firebase init error:", error);
+                showError(error.message);
             }
         }
 
         async function fetchTrades() {
             console.log("📥 Fetching trades from database...");
-            if (!currentUser || !db || !firestoreApi) {
+            if (!currentUser || !db) {
                 console.warn("⚠️ Missing dependencies - skipping fetch");
                 return;
             }
 
             try {
-                const q = firestoreApi.query(
-                    firestoreApi.collection(db, "trades"),
-                    firestoreApi.where("uid", "==", currentUser.uid)
-                );
-                const querySnapshot = await firestoreApi.getDocs(q);
-                window.tradesData = []; 
+                const snapshot = await db.collection("trades")
+                    .where("uid", "==", currentUser.uid)
+                    .get();
+                    
+                window.tradesData = [];
                 
-                querySnapshot.forEach((doc) => {
+                snapshot.forEach((doc) => {
                     window.tradesData.push({ id: doc.id, ...doc.data() });
                 });
                 
@@ -486,7 +495,7 @@
                 };
 
                 console.log("💾 Saving trade...", newTrade);
-                await firestoreApi.addDoc(firestoreApi.collection(db, "trades"), newTrade);
+                await db.collection("trades").add(newTrade);
                 console.log("✅ Trade saved successfully");
                 
                 closeTradeModal();
